@@ -1,0 +1,20 @@
+{
+  "name": "game-publisher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared publishing workflow and checks for Games to Procrastinate To.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "bin": {
+    "game-publisher": "scripts/check.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\""
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "wrangler": "4.159.0"
+  }
+}

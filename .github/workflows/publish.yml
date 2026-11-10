@@ -1,0 +1,109 @@
+name: Publish game
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: Runner label for the job.
+        type: string
+        default: ubuntu-latest
+      node-version:
+        description: Node.js version for the game build.
+        type: string
+        default: '24'
+      test-command:
+        description: Game checks before the build. Empty skips them.
+        type: string
+        default: npm run test --if-present
+      post-build-command:
+        description: Optional game checks after the build, e.g. browser regressions against dist/.
+        type: string
+        default: ''
+      platform-ref:
+        description: game-publisher ref for the platform scripts. Keep it equal to the ref in `uses:`.
+        type: string
+        default: v1
+
+jobs:
+  publish:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+    concurrency:
+      group: publish-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - name: Fetch platform scripts
+        uses: actions/checkout@v7
+        with:
+          repository: procrastinate-games/game-publisher
+          ref: ${{ inputs.platform-ref }}
+          path: .game-publisher
+      # Outside the workspace, so game tools (vitest, tsc, linters) never pick up platform files.
+      - name: Move platform scripts out of the game
+        run: |
+          mv .game-publisher "$RUNNER_TEMP/game-publisher"
+          echo "PLATFORM=$RUNNER_TEMP/game-publisher" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Read game status
+        id: manifest
+        env:
+          MANIFEST: public/game.json
+        run: node "$PLATFORM/scripts/validate.mjs"
+
+      # A fresh template has no game yet; the game's own scaffold adds package.json.
+      - name: Install dependencies
+        if: hashFiles('package.json') != ''
+        run: npm ci
+      - name: Game checks
+        if: hashFiles('package.json') != '' && inputs.test-command != ''
+        run: ${{ inputs.test-command }}
+      - name: Build
+        if: hashFiles('package.json') != ''
+        run: npm run build
+      - name: Game checks after the build
+        if: hashFiles('package.json') != '' && inputs.post-build-command != ''
+        run: ${{ inputs.post-build-command }}
+
+      - name: Validate built metadata
+        if: steps.manifest.outputs.publish == 'true'
+        run: node "$PLATFORM/scripts/validate.mjs"
+      - name: Install publishing tools
+        if: steps.manifest.outputs.publish == 'true'
+        run: |
+          npm ci --prefix "$PLATFORM" --no-audit --no-fund
+          "$PLATFORM/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Smoke-test the production build
+        if: steps.manifest.outputs.publish == 'true'
+        run: node "$PLATFORM/scripts/smoke.mjs"
+      - name: Reject an outdated release
+        if: steps.manifest.outputs.publish == 'true'
+        run: |
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+      - name: Publish tested artifact
+        if: steps.manifest.outputs.publish == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing CLOUDFLARE_API_TOKEN (call this workflow with secrets: inherit)'; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing CLOUDFLARE_ACCOUNT_ID (call this workflow with secrets: inherit)'; exit 1; }
+          # Games may keep their own Wrangler config; otherwise use the platform default.
+          if [ ! -e wrangler.jsonc ] && [ ! -e wrangler.json ] && [ ! -e wrangler.toml ]; then
+            cp "$PLATFORM/wrangler.default.jsonc" wrangler.jsonc
+          fi
+          "$PLATFORM/node_modules/.bin/wrangler" deploy --name "pg-${GITHUB_REPOSITORY#*/}" --keep-vars
+      - name: Verify live game
+        if: steps.manifest.outputs.publish == 'true'
+        run: node "$PLATFORM/scripts/verify.mjs"
+      - name: Refresh portal
+        if: steps.manifest.outputs.publish == 'true'
+        env:
+          PORTAL_DISPATCH_TOKEN: ${{ secrets.PORTAL_DISPATCH_TOKEN }}
+        run: node "$PLATFORM/scripts/dispatch.mjs"
