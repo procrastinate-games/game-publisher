@@ -99,6 +99,12 @@ jobs:
             cp "$PLATFORM/wrangler.default.jsonc" wrangler.jsonc
           fi
           "$PLATFORM/node_modules/.bin/wrangler" deploy --name "pg-${GITHUB_REPOSITORY#*/}" --keep-vars
+      - name: Connect platform subdomain
+        if: steps.manifest.outputs.publish == 'true' && steps.manifest.outputs.custom_domain == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node "$PLATFORM/scripts/connect-domain.mjs"
       - name: Verify live game
         if: steps.manifest.outputs.publish == 'true'
         run: node "$PLATFORM/scripts/verify.mjs"

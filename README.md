@@ -69,3 +69,11 @@ git tag -f v1 && git push -f origin v1
 ```
 
 A change that would break existing games (a stricter schema, a new required input) goes out as `v2`; games move to it one by one.
+
+## Game addresses and discovery
+
+New template games set `useCustomDomain: true` in public/game.json. After publishing the tested Worker artifact, the workflow attaches `https://<repository-name>.procrastinate.games/` to `pg-<repository-name>` in the existing active platform zone, verifies the homepage and identical metadata over HTTPS, then refreshes the portal. Cloudflare manages DNS and TLS. The existing Workers Scripts Write organization token is used; no tokens are exposed to game client code. Conflicting Worker bindings fail rather than being replaced. DNS or certificate errors fail publication verification and must be investigated before retrying.
+
+The flag is optional for backwards compatibility: existing games without it keep their workers.dev origin and saves. Do not add it to existing games without an explicit migration decision. Workers.dev remains enabled for metadata discovery even when a custom domain is used. The portal derives allowed game addresses; arbitrary metadata URLs are ignored.
+
+For the current game list use https://procrastinate.games/catalog-manifest.json, not a hand-maintained list in this repository.

@@ -15,7 +15,7 @@ export function validateManifest(game, expectedSlug) {
   if (game.supportedDevices !== undefined && (!Array.isArray(game.supportedDevices) || !game.supportedDevices.length || new Set(game.supportedDevices).size !== game.supportedDevices.length || game.supportedDevices.some(device => !['desktop', 'mobile'].includes(device)))) throw new Error('Invalid supportedDevices');
   if (!['2D', '3D'].includes(game.dimension)) throw new Error('Invalid dimension');
   if (!['lime', 'coral', 'purple'].includes(game.accent)) throw new Error('Invalid accent');
-  for (const key of ['featured', 'showSource']) {
+  for (const key of ['featured', 'showSource', 'useCustomDomain']) {
     if (game[key] !== undefined && typeof game[key] !== 'boolean') throw new Error(`Invalid ${key}`);
   }
   if (game.startQuery !== undefined && (typeof game.startQuery !== 'string' || (game.startQuery !== '' && !/^\?[^#\s]*$/.test(game.startQuery)))) throw new Error('startQuery must be empty or a query beginning with ?');
