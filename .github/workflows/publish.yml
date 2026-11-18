@@ -72,6 +72,9 @@ jobs:
       - name: Validate built metadata
         if: steps.manifest.outputs.publish == 'true'
         run: node "$PLATFORM/scripts/validate.mjs"
+      - name: Prepare static SEO metadata and sitemap
+        if: steps.manifest.outputs.publish == 'true'
+        run: node "$PLATFORM/scripts/seo.mjs"
       - name: Install publishing tools
         if: steps.manifest.outputs.publish == 'true'
         run: |

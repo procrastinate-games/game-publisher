@@ -77,3 +77,7 @@ New template games set `useCustomDomain: true` in public/game.json. After publis
 The flag is optional for backwards compatibility: existing games without it keep their workers.dev origin and saves. Do not add it to existing games without an explicit migration decision. Workers.dev remains enabled for metadata discovery even when a custom domain is used. The portal derives allowed game addresses; arbitrary metadata URLs are ignored.
 
 For the current game list use https://procrastinate.games/catalog-manifest.json, not a hand-maintained list in this repository.
+
+## SEO contract
+
+Before smoke testing, the shared workflow runs scripts/seo.mjs on the built artifact. It derives exact game titles/descriptions, canonical and social metadata, VideoGame JSON-LD, robots.txt, sitemap.xml and X-Robots-Tag from validated game.json. Published games are indexable; hidden games remain noindex and have an empty sitemap. Origins and saves never change. Game READMEs must link to https://procrastinate.games/ (central template policy); preserve this when rewriting documentation. No second publishing pipeline is required.
